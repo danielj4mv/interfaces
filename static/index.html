@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workforce Planning</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+
+<body>
+  <div class="layout">
+    <nav>
+      <div class="nav-header">
+        <img src="/static/images/wp.png" alt="logo" class="logo"/>
+      </div>
+      <button type="button" data-panel="seccionales" class="active">Seccionales</button>
+      <button type="button" data-panel="oficinas">Oficinas</button>
+      <button type="button" data-panel="empleados">Empleados</button>
+      <button type="button" data-panel="jornadas">Jornadas</button>
+      <button type="button" data-panel="demanda">Demanda</button>
+      <button type="button" data-panel="simulacion">Simulación</button>
+    </nav>
+    <main>
+      <div id="global-error" class="error-banner" style="display:none"></div>
+
+      <section id="panel-seccionales" class="panel active">
+        <h2>Seccionales</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Editar Seccionales</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-new-seccional">Nueva seccional</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th style="width:170px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-seccionales"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-oficinas" class="panel">
+        <h2>Oficinas</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Editar Oficinas</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-new-oficina">Nueva oficina</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Seccional</th>
+                  <th style="width:170px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-oficinas"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-empleados" class="panel">
+        <h2>Empleados</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Editar Empleados</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-new-empleado">Nuevo empleado</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Pago/hora</th>
+                  <th>Seccional</th>
+                  <th>Permisos</th>
+                  <th style="width:170px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-empleados"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-jornadas" class="panel">
+        <h2>Jornadas y calendario</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Semanas</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar toolbar-align">
+              <label class="field-inline" for="input-semanas-cantidad">Cantidad de semanas</label>
+              <input type="number" id="input-semanas-cantidad" min="1" max="52" style="width:100px" />
+              <button type="button" class="primary" id="btn-apply-semanas">Aplicar</button>
+            </div>
+            <p class="hint" id="semanas-resumen"></p>
+            <div id="list-semanas" class="inline-list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Días de la semana</h2>
+          </div>
+          <div class="card-body">
+            <div id="dias-toggles" class="dias-grid"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Jornadas</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-new-jornada">Nueva jornada</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Horas</th>
+                  <th>Almuerzos</th>
+                  <th style="width:170px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-jornadas"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-demanda" class="panel">
+        <h2>Demanda (Excel)</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Cargar demanda</h2>
+          </div>
+          <div class="card-body">
+            <div id="demanda-status"></div>
+            <form id="form-demanda">
+              <input type="file" id="file-demanda" accept=".xlsx,.xls" required />
+              <button type="submit" class="primary" style="margin-top:0.75rem">Subir archivo</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-simulacion" class="panel">
+        <h2>Simulación</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Ejecutar simulación</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-run-sim">Ejecutar simulación</button>
+              <span id="sim-loading" style="display:none"><span class="spinner"></span>Ejecutando…</span>
+            </div>
+            <div id="sim-output"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="modal-cancel">Cancelar</button>
+        <button type="button" class="primary" id="modal-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+
+</html>
