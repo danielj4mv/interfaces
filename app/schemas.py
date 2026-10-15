@@ -145,6 +145,25 @@ class JornadaOut(JornadaBase):
         from_attributes = True
 
 
+class ConfiguracionAvanzadaOut(BaseModel):
+    penalizacion_subpersonal: int
+    penalizacion_sobrepersonal: int
+    penalizacion_funcionario_utilizado: int
+    max_horas_semanales: int
+    solver_time_limit: int
+
+    class Config:
+        from_attributes = True
+
+
+class ConfiguracionAvanzadaUpdate(BaseModel):
+    penalizacion_subpersonal: int = Field(ge=0)
+    penalizacion_sobrepersonal: int = Field(ge=0)
+    penalizacion_funcionario_utilizado: int = Field(ge=0)
+    max_horas_semanales: int = Field(ge=1, le=168)
+    solver_time_limit: int = Field(ge=1, le=86400)
+
+
 class DemandaStatusOut(BaseModel):
     has_file: bool
     filename: Optional[str] = None
