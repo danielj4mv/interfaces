@@ -47,6 +47,7 @@ nav {
   align-items: center;
   justify-content: center;
   background-color: #dbdee1;
+  padding: 10px;
 }
 
 nav h1 {
@@ -370,6 +371,26 @@ summary {
 
 .field-inline {
   font-size: 0.85rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 520px;
+}
+
+.settings-field input {
+  max-width: 160px;
+}
+
+.settings-field .hint {
+  margin: 0.25rem 0 0;
+}
+
+.settings-form .toolbar {
+  margin-bottom: 0;
+  margin-top: 0.25rem;
 }
 
 .dias-grid {
