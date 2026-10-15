@@ -2,6 +2,7 @@ import json
 
 from sqlalchemy.orm import Session
 
+from app.config_loader import get_or_create_configuracion
 from app.models import Dia, Jornada, Semana
 
 DEFAULT_DIAS = [
@@ -51,4 +52,5 @@ def seed_defaults(db: Session) -> None:
                 )
             )
 
+    get_or_create_configuracion(db)
     db.commit()
