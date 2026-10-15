@@ -3,7 +3,21 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Dia, Empleado, Jornada, Oficina, Semana, Seccional
+from app.models import (
+    ConfiguracionAvanzada,
+    Dia,
+    Empleado,
+    Jornada,
+    Oficina,
+    Semana,
+    Seccional,
+)
+
+DEFAULT_PENALIZACION_SUBPERSONAL = 5000
+DEFAULT_PENALIZACION_SOBREPERSONAL = 1
+DEFAULT_PENALIZACION_FUNCIONARIO_UTILIZADO = 1000
+DEFAULT_MAX_HORAS_SEMANALES = 40
+DEFAULT_SOLVER_TIME_LIMIT = 120
 
 
 @dataclass
@@ -21,6 +35,30 @@ class SolverConfig:
     pago_hora: dict[str, float]
     oficinas_registradas: set[int]
     seccionales: dict[int, str]
+    penalizacion_subpersonal: int = DEFAULT_PENALIZACION_SUBPERSONAL
+    penalizacion_sobrepersonal: int = DEFAULT_PENALIZACION_SOBREPERSONAL
+    penalizacion_funcionario_utilizado: int = (
+        DEFAULT_PENALIZACION_FUNCIONARIO_UTILIZADO
+    )
+    max_horas_semanales: int = DEFAULT_MAX_HORAS_SEMANALES
+    solver_time_limit: int = DEFAULT_SOLVER_TIME_LIMIT
+
+
+def get_or_create_configuracion(db: Session) -> ConfiguracionAvanzada:
+    row = db.query(ConfiguracionAvanzada).first()
+    if row:
+        return row
+    row = ConfiguracionAvanzada(
+        penalizacion_subpersonal=DEFAULT_PENALIZACION_SUBPERSONAL,
+        penalizacion_sobrepersonal=DEFAULT_PENALIZACION_SOBREPERSONAL,
+        penalizacion_funcionario_utilizado=DEFAULT_PENALIZACION_FUNCIONARIO_UTILIZADO,
+        max_horas_semanales=DEFAULT_MAX_HORAS_SEMANALES,
+        solver_time_limit=DEFAULT_SOLVER_TIME_LIMIT,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def load_solver_config(db: Session) -> SolverConfig:
@@ -76,6 +114,8 @@ def load_solver_config(db: Session) -> SolverConfig:
 
     horas_del_dia = sorted(horas_set, key=hora_key)
 
+    parametros = db.query(ConfiguracionAvanzada).first()
+
     return SolverConfig(
         empleados=empleados,
         seccional_por_oficina=seccional_por_oficina,
@@ -90,4 +130,29 @@ def load_solver_config(db: Session) -> SolverConfig:
         pago_hora=pago_hora,
         oficinas_registradas=oficinas_registradas,
         seccionales=seccionales,
+        penalizacion_subpersonal=(
+            parametros.penalizacion_subpersonal
+            if parametros
+            else DEFAULT_PENALIZACION_SUBPERSONAL
+        ),
+        penalizacion_sobrepersonal=(
+            parametros.penalizacion_sobrepersonal
+            if parametros
+            else DEFAULT_PENALIZACION_SOBREPERSONAL
+        ),
+        penalizacion_funcionario_utilizado=(
+            parametros.penalizacion_funcionario_utilizado
+            if parametros
+            else DEFAULT_PENALIZACION_FUNCIONARIO_UTILIZADO
+        ),
+        max_horas_semanales=(
+            parametros.max_horas_semanales
+            if parametros
+            else DEFAULT_MAX_HORAS_SEMANALES
+        ),
+        solver_time_limit=(
+            parametros.solver_time_limit
+            if parametros
+            else DEFAULT_SOLVER_TIME_LIMIT
+        ),
     )
