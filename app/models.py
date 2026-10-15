@@ -108,6 +108,19 @@ class Jornada(Base):
     almuerzos_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
 
 
+class ConfiguracionAvanzada(Base):
+    __tablename__ = "configuracion_avanzada"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    penalizacion_subpersonal: Mapped[int] = mapped_column(Integer, nullable=False)
+    penalizacion_sobrepersonal: Mapped[int] = mapped_column(Integer, nullable=False)
+    penalizacion_funcionario_utilizado: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    max_horas_semanales: Mapped[int] = mapped_column(Integer, nullable=False)
+    solver_time_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class DemandaUpload(Base):
     __tablename__ = "demanda_uploads"
 
