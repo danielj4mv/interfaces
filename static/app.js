@@ -57,6 +57,7 @@ document.querySelectorAll("nav button[data-panel]").forEach((btn) => {
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
     document.getElementById(`panel-${id}`).classList.add("active");
     if (id === "demanda") loadDemandaStatus();
+    if (id === "configuracion") loadConfiguracion();
   });
 });
 
@@ -689,6 +690,84 @@ async function deleteJornada(id) {
   }
 }
 
+// --- Configuración avanzada ---
+function readIntField(id, label, min, max) {
+  const raw = document.getElementById(id).value;
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${label} debe ser un número entero.`);
+  }
+  if (value < min || value > max) {
+    throw new Error(`${label} debe estar entre ${min} y ${max}.`);
+  }
+  return value;
+}
+
+function fillConfiguracionForm(cfg) {
+  document.getElementById("cfg-penalizacion-subpersonal").value = cfg.penalizacion_subpersonal;
+  document.getElementById("cfg-penalizacion-sobrepersonal").value = cfg.penalizacion_sobrepersonal;
+  document.getElementById("cfg-penalizacion-funcionario").value = cfg.penalizacion_funcionario_utilizado;
+  document.getElementById("cfg-max-horas-semanales").value = cfg.max_horas_semanales;
+  document.getElementById("cfg-solver-time-limit").value = cfg.solver_time_limit;
+}
+
+async function loadConfiguracion() {
+  const cfg = await api("/api/configuracion");
+  fillConfiguracionForm(cfg);
+  const status = document.getElementById("config-save-status");
+  if (status) status.textContent = "";
+}
+
+document.getElementById("form-configuracion").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = document.getElementById("config-save-status");
+  status.textContent = "";
+  try {
+    const body = {
+      penalizacion_subpersonal: readIntField(
+        "cfg-penalizacion-subpersonal",
+        "Penalización por personal insuficiente",
+        0,
+        1_000_000_000
+      ),
+      penalizacion_sobrepersonal: readIntField(
+        "cfg-penalizacion-sobrepersonal",
+        "Penalización por personal de más",
+        0,
+        1_000_000_000
+      ),
+      penalizacion_funcionario_utilizado: readIntField(
+        "cfg-penalizacion-funcionario",
+        "Penalización por funcionario utilizado",
+        0,
+        1_000_000_000
+      ),
+      max_horas_semanales: readIntField(
+        "cfg-max-horas-semanales",
+        "Máximo de horas semanales",
+        1,
+        168
+      ),
+      solver_time_limit: readIntField(
+        "cfg-solver-time-limit",
+        "Tiempo máximo de cálculo",
+        1,
+        86400
+      ),
+    };
+    const saved = await api("/api/configuracion", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    fillConfiguracionForm(saved);
+    showGlobalError(null);
+    status.textContent = "Cambios guardados.";
+  } catch (err) {
+    showGlobalError(err.message);
+  }
+});
+
 // --- Demanda ---
 async function loadDemandaStatus() {
   const st = await api("/api/demanda/status");
@@ -833,6 +912,7 @@ async function init() {
     await loadOficinas();
     await loadEmpleados();
     await loadJornadasPanel();
+    await loadConfiguracion();
     await loadDemandaStatus();
   } catch (e) {
     showGlobalError(e.message);
