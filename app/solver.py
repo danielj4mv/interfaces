@@ -10,12 +10,6 @@ import pulp
 
 from app.config_loader import SolverConfig
 
-PENALIZACION_SUBPERSONAL = 5000
-PENALIZACION_SOBREPERSONAL = 1
-PENALIZACION_FUNCIONARIO_UTILIZADO = 1000
-MAX_HORAS_SEMANALES = 40
-SOLVER_TIME_LIMIT = 120
-
 
 def _normalize_hora(valor_hora: Any, fila_excel: int) -> tuple[str | None, str | None]:
     try:
@@ -223,6 +217,11 @@ def _build_and_solve(
     pago_hora = config.pago_hora
     seccional_por_oficina = config.seccional_por_oficina
     funcionarios_por_seccional = config.funcionarios_por_seccional
+    penalizacion_subpersonal = config.penalizacion_subpersonal
+    penalizacion_sobrepersonal = config.penalizacion_sobrepersonal
+    penalizacion_funcionario_utilizado = config.penalizacion_funcionario_utilizado
+    max_horas_semanales = config.max_horas_semanales
+    solver_time_limit = config.solver_time_limit
 
     horas_efectivas_jornada = {
         j: (
@@ -247,7 +246,7 @@ def _build_and_solve(
         }
         if not oficinas_seccional:
             warnings.append(f"{seccional} no tiene oficinas asociadas en la demanda.")
-        capacidad_maxima = len(lista_funcionarios) * MAX_HORAS_SEMANALES
+        capacidad_maxima = len(lista_funcionarios) * max_horas_semanales
         demanda_total = sum(
             demanda_por_hora[o, s, d, h]
             for o in oficinas_seccional
@@ -325,8 +324,8 @@ def _build_and_solve(
     )
 
     penalizacion_demanda = pulp.lpSum(
-        sub_personal[o, s, d, h] * PENALIZACION_SUBPERSONAL
-        + sobre_personal[o, s, d, h] * PENALIZACION_SOBREPERSONAL
+        sub_personal[o, s, d, h] * penalizacion_subpersonal
+        + sobre_personal[o, s, d, h] * penalizacion_sobrepersonal
         for o in oficinas
         for s in semanas
         for d in dias
@@ -334,7 +333,7 @@ def _build_and_solve(
     )
 
     penalizacion_funcionarios = pulp.lpSum(
-        funcionario_utilizado[emp] * PENALIZACION_FUNCIONARIO_UTILIZADO
+        funcionario_utilizado[emp] * penalizacion_funcionario_utilizado
         for emp in empleados
     )
 
@@ -412,7 +411,7 @@ def _build_and_solve(
                     for d in dias
                     for j in jornadas
                 )
-                <= MAX_HORAS_SEMANALES
+                <= max_horas_semanales
             )
 
     for emp in empleados:
@@ -501,7 +500,7 @@ def _build_and_solve(
                                                     <= 1
                                                 )
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=SOLVER_TIME_LIMIT))
+    prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=solver_time_limit))
     estado_solucion = pulp.LpStatus[prob.status]
 
     resultado: dict[str, Any] = {
