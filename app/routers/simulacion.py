@@ -1,55 +1,86 @@
-from pathlib import Path
+import asyncio
+import json
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.config_loader import load_solver_config
-from app.database import BASE_DIR, get_db
-from app.models import DemandaUpload
-from app.schemas import SimulationRunOut
-from app.solver import run_simulation
+from app.database import SessionLocal, get_db
+from app.simulation_runner import build_and_solve, list_problems
 
 router = APIRouter(prefix="/api/simulacion", tags=["simulacion"])
 
-UPLOAD_PATH = BASE_DIR / "uploads" / "demanda.xlsx"
+_executor = ThreadPoolExecutor(max_workers=1)
 
 
-def _latest_demanda_path(db: Session) -> Path | None:
-    latest = (
-        db.query(DemandaUpload).order_by(DemandaUpload.uploaded_at.desc()).first()
-    )
-    if latest and Path(latest.stored_path).is_file():
-        return Path(latest.stored_path)
-    if UPLOAD_PATH.is_file():
-        return UPLOAD_PATH
-    return None
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@router.post("/ejecutar", response_model=SimulationRunOut)
-def ejecutar_simulacion(db: Session = Depends(get_db)):
-    path = _latest_demanda_path(db)
-    if not path:
-        return SimulationRunOut(
-            ok=False,
-            errors=["Debe cargar un archivo Excel de demanda antes de simular."],
-        )
+@router.get("/stream")
+async def stream_simulacion(db: Session = Depends(get_db)):
+    problems = list_problems(db)
+    if not problems:
+        async def empty():
+            yield _sse("error", {"message": "No hay demanda cargada."})
+            yield _sse("done", {"ok": 0, "failed": 0, "total": 0})
 
-    config = load_solver_config(db)
-    outcome = run_simulation(config, path)
-    warnings = outcome.get("warnings", [])
-    results = outcome.get("results")
-    if results and isinstance(results, dict):
-        # Surface capacity warnings from diagnostico
-        for item in results.get("diagnostico_capacidad", []):
-            if item.get("imposible"):
-                warnings.append(
-                    f"Seccional {item['seccional']}: faltan aprox. "
-                    f"{item.get('faltan_horas', 0)} horas de capacidad."
+        return StreamingResponse(empty(), media_type="text/event-stream")
+
+    total = len(problems)
+    keys = list(problems)
+
+    async def generate():
+        ok_count = 0
+        failed = 0
+        loop = asyncio.get_event_loop()
+        for index, key in enumerate(keys, start=1):
+            yield _sse(
+                "progress",
+                {
+                    "index": index,
+                    "total": total,
+                    "seccional": key.seccional_nombre,
+                    "semana": key.semana,
+                    "servicio": key.servicio_nombre,
+                },
+            )
+
+            def run_one():
+                session = SessionLocal()
+                try:
+                    return build_and_solve(session, key)
+                finally:
+                    session.close()
+
+            try:
+                result = await loop.run_in_executor(_executor, run_one)
+                ok_count += 1
+                yield _sse("result", result)
+            except Exception as exc:
+                failed += 1
+                yield _sse(
+                    "error",
+                    {
+                        "seccional": key.seccional_nombre,
+                        "semana": key.semana,
+                        "servicio": key.servicio_nombre,
+                        "message": str(exc),
+                    },
                 )
 
-    return SimulationRunOut(
-        ok=outcome["ok"],
-        errors=outcome.get("errors", []),
-        warnings=warnings,
-        results=results,
+        yield _sse(
+            "done",
+            {"ok": ok_count, "failed": failed, "total": total},
+        )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

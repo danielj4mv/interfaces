@@ -2,53 +2,92 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Empleado, Oficina, PermisoLaboral, Seccional
-from app.schemas import EmpleadoCreate, EmpleadoOut, EmpleadoUpdate, PermisoLaboralOut
+from app.models import Empleado, PermisoLaboral, Servicio, Seccional
+from app.schemas import (
+    EmpleadoCreate,
+    EmpleadoOut,
+    EmpleadoUpdate,
+    PermisoLaboralOut,
+)
+from app.time_utils import normalize_hhmm
 
 router = APIRouter(prefix="/api/empleados", tags=["empleados"])
 
 
-def _validate_permisos(db: Session, seccional_id: int, permisos: list) -> None:
+def _validate_servicio_seccional(
+    db: Session, seccional_id: int, servicio_id: int
+) -> None:
+    servicio = db.get(Servicio, servicio_id)
+    if not servicio:
+        raise HTTPException(status_code=400, detail="Servicio no válido.")
+    if servicio.seccional_id != seccional_id:
+        raise HTTPException(
+            status_code=400,
+            detail="El servicio no pertenece a la seccional del empleado.",
+        )
+
+
+def _validate_permisos(permisos: list) -> None:
     for p in permisos:
-        oficina = db.get(Oficina, p.oficina_id)
-        if not oficina:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Oficina {p.oficina_id} no existe para permiso laboral.",
-            )
-        if oficina.seccional_id != seccional_id:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"La oficina {p.oficina_id} no pertenece a la seccional del empleado."
-                ),
-            )
+        if p.tipo == "horas":
+            hi = normalize_hhmm(p.hora_inicio or "")
+            hf = normalize_hhmm(p.hora_fin or "")
+            if not hi or not hf:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Permiso por horas: hora_inicio y hora_fin inválidas.",
+                )
 
 
 def _to_out(emp: Empleado) -> EmpleadoOut:
     return EmpleadoOut(
         id=emp.id,
         nombre=emp.nombre,
-        pago_hora=emp.pago_hora,
         seccional_id=emp.seccional_id,
+        servicio_id=emp.servicio_id,
+        horas_semanales=emp.horas_semanales,
+        dia_descanso=emp.dia_descanso,
+        modo_horas=emp.modo_horas,
+        holgura_pct=emp.holgura_pct,
         seccional_nombre=emp.seccional.nombre if emp.seccional else None,
+        servicio_nombre=emp.servicio.nombre if emp.servicio else None,
         permisos=[
             PermisoLaboralOut(
                 id=p.id,
-                oficina_id=p.oficina_id,
+                tipo=p.tipo,
                 dia=p.dia,
-                hora=p.hora,
+                hora_inicio=p.hora_inicio,
+                hora_fin=p.hora_fin,
             )
             for p in emp.permisos
         ],
     )
 
 
+def _apply_permisos(row: Empleado, permisos: list) -> None:
+    row.permisos.clear()
+    for p in permisos:
+        hi = normalize_hhmm(p.hora_inicio or "") if p.tipo == "horas" else None
+        hf = normalize_hhmm(p.hora_fin or "") if p.tipo == "horas" else None
+        row.permisos.append(
+            PermisoLaboral(
+                tipo=p.tipo,
+                dia=p.dia,
+                hora_inicio=hi,
+                hora_fin=hf,
+            )
+        )
+
+
 @router.get("", response_model=list[EmpleadoOut])
 def list_empleados(db: Session = Depends(get_db)):
     rows = (
         db.query(Empleado)
-        .options(joinedload(Empleado.seccional), joinedload(Empleado.permisos))
+        .options(
+            joinedload(Empleado.seccional),
+            joinedload(Empleado.servicio),
+            joinedload(Empleado.permisos),
+        )
         .order_by(Empleado.nombre)
         .all()
     )
@@ -59,26 +98,28 @@ def list_empleados(db: Session = Depends(get_db)):
 def create_empleado(body: EmpleadoCreate, db: Session = Depends(get_db)):
     if not db.get(Seccional, body.seccional_id):
         raise HTTPException(status_code=400, detail="Seccional no válida.")
-    _validate_permisos(db, body.seccional_id, body.permisos)
+    _validate_servicio_seccional(db, body.seccional_id, body.servicio_id)
+    _validate_permisos(body.permisos)
+    holgura = body.holgura_pct if body.modo_horas == "flexible" else 0.0
     row = Empleado(
         nombre=body.nombre,
-        pago_hora=body.pago_hora,
         seccional_id=body.seccional_id,
+        servicio_id=body.servicio_id,
+        horas_semanales=body.horas_semanales,
+        dia_descanso=body.dia_descanso,
+        modo_horas=body.modo_horas,
+        holgura_pct=holgura,
     )
-    for p in body.permisos:
-        row.permisos.append(
-            PermisoLaboral(
-                oficina_id=p.oficina_id,
-                dia=p.dia,
-                hora=p.hora,
-            )
-        )
+    _apply_permisos(row, body.permisos)
     db.add(row)
     db.commit()
-    db.refresh(row)
     row = (
         db.query(Empleado)
-        .options(joinedload(Empleado.seccional), joinedload(Empleado.permisos))
+        .options(
+            joinedload(Empleado.seccional),
+            joinedload(Empleado.servicio),
+            joinedload(Empleado.permisos),
+        )
         .filter(Empleado.id == row.id)
         .one()
     )
@@ -99,23 +140,25 @@ def update_empleado(
         raise HTTPException(status_code=404, detail="Empleado no encontrado.")
     if not db.get(Seccional, body.seccional_id):
         raise HTTPException(status_code=400, detail="Seccional no válida.")
-    _validate_permisos(db, body.seccional_id, body.permisos)
+    _validate_servicio_seccional(db, body.seccional_id, body.servicio_id)
+    _validate_permisos(body.permisos)
+    holgura = body.holgura_pct if body.modo_horas == "flexible" else 0.0
     row.nombre = body.nombre
-    row.pago_hora = body.pago_hora
     row.seccional_id = body.seccional_id
-    row.permisos.clear()
-    for p in body.permisos:
-        row.permisos.append(
-            PermisoLaboral(
-                oficina_id=p.oficina_id,
-                dia=p.dia,
-                hora=p.hora,
-            )
-        )
+    row.servicio_id = body.servicio_id
+    row.horas_semanales = body.horas_semanales
+    row.dia_descanso = body.dia_descanso
+    row.modo_horas = body.modo_horas
+    row.holgura_pct = holgura
+    _apply_permisos(row, body.permisos)
     db.commit()
     row = (
         db.query(Empleado)
-        .options(joinedload(Empleado.seccional), joinedload(Empleado.permisos))
+        .options(
+            joinedload(Empleado.seccional),
+            joinedload(Empleado.servicio),
+            joinedload(Empleado.permisos),
+        )
         .filter(Empleado.id == empleado_id)
         .one()
     )
