@@ -16,9 +16,9 @@
       </div>
       <button type="button" data-panel="seccionales" class="active">Seccionales</button>
       <button type="button" data-panel="oficinas">Oficinas</button>
+      <button type="button" data-panel="servicios">Servicios</button>
       <button type="button" data-panel="empleados">Empleados</button>
       <button type="button" data-panel="jornadas">Jornadas</button>
-      <button type="button" data-panel="configuracion">Configuración avanzada</button>
       <button type="button" data-panel="demanda">Demanda</button>
       <button type="button" data-panel="simulacion">Simulación</button>
     </nav>
@@ -38,6 +38,7 @@
             <table>
               <thead>
                 <tr>
+                  <th style="width:4rem">Id</th>
                   <th>Nombre</th>
                   <th style="width:170px">Acciones</th>
                 </tr>
@@ -61,13 +62,38 @@
             <table>
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style="width:4rem">Id</th>
                   <th>Nombre</th>
                   <th>Seccional</th>
                   <th style="width:170px">Acciones</th>
                 </tr>
               </thead>
               <tbody id="tbody-oficinas"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-servicios" class="panel">
+        <h2>Servicios</h2>
+        <div class="card">
+          <div class="card-header">
+            <h2>Editar Servicios</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button type="button" class="primary" id="btn-new-servicio">Nuevo servicio</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:4rem">Id</th>
+                  <th>Nombre</th>
+                  <th>Seccional</th>
+                  <th style="width:170px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-servicios"></tbody>
             </table>
           </div>
         </div>
@@ -86,9 +112,13 @@
             <table>
               <thead>
                 <tr>
+                  <th style="width:4rem">Id</th>
                   <th>Nombre</th>
-                  <th>Pago/hora</th>
+                  <th>Horas/sem</th>
+                  <th>Descanso</th>
+                  <th>Modo</th>
                   <th>Seccional</th>
+                  <th>Servicio</th>
                   <th>Permisos</th>
                   <th style="width:170px">Acciones</th>
                 </tr>
@@ -100,32 +130,10 @@
       </section>
 
       <section id="panel-jornadas" class="panel">
-        <h2>Jornadas y calendario</h2>
+        <h2>Jornadas</h2>
         <div class="card">
           <div class="card-header">
-            <h2>Semanas</h2>
-          </div>
-          <div class="card-body">
-            <div class="toolbar toolbar-align">
-              <label class="field-inline" for="input-semanas-cantidad">Cantidad de semanas</label>
-              <input type="number" id="input-semanas-cantidad" min="1" max="52" style="width:100px" />
-              <button type="button" class="primary" id="btn-apply-semanas">Aplicar</button>
-            </div>
-            <p class="hint" id="semanas-resumen"></p>
-            <div id="list-semanas" class="inline-list"></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <h2>Días de la semana</h2>
-          </div>
-          <div class="card-body">
-            <div id="dias-toggles" class="dias-grid"></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <h2>Jornadas</h2>
+            <h2>Jornadas laborales</h2>
           </div>
           <div class="card-body">
             <div class="toolbar">
@@ -134,57 +142,17 @@
             <table>
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>Horas</th>
-                  <th>Almuerzos</th>
+                  <th style="width:4rem">Id</th>
+                  <th>Oficina</th>
+                  <th>Seccional</th>
+                  <th>Horario</th>
+                  <th>Descanso</th>
+                  <th>Días</th>
                   <th style="width:170px">Acciones</th>
                 </tr>
               </thead>
               <tbody id="tbody-jornadas"></tbody>
             </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="panel-configuracion" class="panel">
-        <h2>Configuración avanzada</h2>
-        <div class="card">
-          <div class="card-header">
-            <h2>Parámetros del modelo</h2>
-          </div>
-          <div class="card-body">
-            <p class="hint">Ajustan cómo el motor prioriza cubrir la demanda, usar menos personal y limitar el tiempo de cálculo.</p>
-            <form id="form-configuracion" class="settings-form">
-              <div class="settings-field">
-                <label for="cfg-penalizacion-subpersonal">Penalización por personal insuficiente</label>
-                <input type="number" id="cfg-penalizacion-subpersonal" min="0" step="1" required />
-                <p class="hint">Peso por cada hora de demanda que queda sin cubrir. Un valor más alto prioriza cumplir la demanda.</p>
-              </div>
-              <div class="settings-field">
-                <label for="cfg-penalizacion-sobrepersonal">Penalización por personal de más</label>
-                <input type="number" id="cfg-penalizacion-sobrepersonal" min="0" step="1" required />
-                <p class="hint">Peso por cada hora con más personal del requerido.</p>
-              </div>
-              <div class="settings-field">
-                <label for="cfg-penalizacion-funcionario">Penalización por funcionario utilizado</label>
-                <input type="number" id="cfg-penalizacion-funcionario" min="0" step="1" required />
-                <p class="hint">Costo fijo por cada funcionario que entra en la planificación. Favorece usar menos personas.</p>
-              </div>
-              <div class="settings-field">
-                <label for="cfg-max-horas-semanales">Máximo de horas semanales</label>
-                <input type="number" id="cfg-max-horas-semanales" min="1" max="168" step="1" required />
-                <p class="hint">Límite de horas que un funcionario puede trabajar en una semana.</p>
-              </div>
-              <div class="settings-field">
-                <label for="cfg-solver-time-limit">Tiempo máximo de cálculo (segundos)</label>
-                <input type="number" id="cfg-solver-time-limit" min="1" max="86400" step="1" required />
-                <p class="hint">Tiempo máximo que el motor puede tardar en buscar una solución.</p>
-              </div>
-              <div class="toolbar toolbar-align">
-                <button type="submit" class="primary">Guardar</button>
-                <span id="config-save-status" class="hint"></span>
-              </div>
-            </form>
           </div>
         </div>
       </section>
@@ -196,11 +164,40 @@
             <h2>Cargar demanda</h2>
           </div>
           <div class="card-body">
+            <p class="hint">Columnas: Seccional, Oficina, Servicio, Semana, Dia, Hora, Demanda. Un archivo nuevo reemplaza toda la demanda.</p>
             <div id="demanda-status"></div>
             <form id="form-demanda">
               <input type="file" id="file-demanda" accept=".xlsx,.xls" required />
-              <button type="submit" class="primary" style="margin-top:0.75rem">Subir archivo</button>
+              <button type="submit" class="primary" style="margin-top:0.75rem">Procesar y guardar</button>
             </form>
+            <div id="demanda-errors" class="error-banner" style="display:none;margin-top:1rem"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Demanda cargada</h2>
+          </div>
+          <div class="card-body">
+            <div class="toolbar toolbar-align">
+              <span id="demanda-total" class="hint"></span>
+              <button type="button" class="secondary" id="btn-demanda-prev" disabled>Anterior</button>
+              <span id="demanda-page-info" class="hint"></span>
+              <button type="button" class="secondary" id="btn-demanda-next" disabled>Siguiente</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Seccional</th>
+                  <th>Oficina</th>
+                  <th>Servicio</th>
+                  <th>Semana</th>
+                  <th>Día</th>
+                  <th>Hora</th>
+                  <th>Demanda</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-demanda"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -214,7 +211,7 @@
           <div class="card-body">
             <div class="toolbar">
               <button type="button" class="primary" id="btn-run-sim">Ejecutar simulación</button>
-              <span id="sim-loading" style="display:none"><span class="spinner"></span>Ejecutando…</span>
+              <span id="sim-progress" class="hint"></span>
             </div>
             <div id="sim-output"></div>
           </div>
@@ -234,6 +231,8 @@
     </div>
   </div>
 
+  <script src="/static/vendor/xlsx.full.min.js"></script>
+  <script src="/static/vendor/chart.umd.min.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 

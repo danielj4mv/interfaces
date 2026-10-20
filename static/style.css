@@ -78,6 +78,7 @@ main {
   flex: 1;
   padding: 1.5rem 2rem;
   overflow: auto;
+  max-height: 100vh;
 }
 
 .panel {
@@ -330,6 +331,21 @@ summary {
   font-size: 0.85rem;
   color: #64748b;
   margin-top: 0;
+}
+
+#sim-output h4 {
+  margin: 0.85rem 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.coverage-chart {
+  position: relative;
+  height: 320px;
+  margin: 0.35rem 0 0.75rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.25rem 0.15rem;
 }
 
 #demanda-status {
