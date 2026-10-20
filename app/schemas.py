@@ -1,7 +1,6 @@
-from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class SeccionalBase(BaseModel):
@@ -18,6 +17,28 @@ class SeccionalUpdate(BaseModel):
 
 class SeccionalOut(SeccionalBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ServicioBase(BaseModel):
+    nombre: str
+    seccional_id: int
+
+
+class ServicioCreate(ServicioBase):
+    pass
+
+
+class ServicioUpdate(BaseModel):
+    nombre: str
+    seccional_id: int
+
+
+class ServicioOut(ServicioBase):
+    id: int
+    seccional_nombre: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -46,9 +67,23 @@ class OficinaOut(OficinaBase):
 
 
 class PermisoLaboralIn(BaseModel):
-    oficina_id: int
-    dia: str
-    hora: str
+    tipo: Literal["dia_completo", "horas"]
+    dia: int = Field(ge=1, le=7)
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_horas(self):
+        if self.tipo == "horas":
+            if not self.hora_inicio or not self.hora_fin:
+                raise ValueError(
+                    "hora_inicio y hora_fin son obligatorias para permisos por horas."
+                )
+        elif self.hora_inicio or self.hora_fin:
+            raise ValueError(
+                "hora_inicio y hora_fin solo aplican a permisos por horas."
+            )
+        return self
 
 
 class PermisoLaboralOut(PermisoLaboralIn):
@@ -60,8 +95,25 @@ class PermisoLaboralOut(PermisoLaboralIn):
 
 class EmpleadoBase(BaseModel):
     nombre: str
-    pago_hora: float = Field(gt=0)
     seccional_id: int
+    servicio_id: int
+    horas_semanales: float = Field(gt=0)
+    dia_descanso: int = Field(ge=1, le=7)
+    modo_horas: Literal["fixed", "flexible"] = "fixed"
+    holgura_pct: float = Field(ge=0, default=0.0)
+
+    @field_validator("horas_semanales")
+    @classmethod
+    def half_hour_multiple(cls, v: float) -> float:
+        if abs(v * 2 - round(v * 2)) > 1e-7:
+            raise ValueError("horas_semanales debe ser múltiplo de 0.5")
+        return v
+
+    @model_validator(mode="after")
+    def validate_flexible(self):
+        if self.modo_horas == "fixed" and self.holgura_pct != 0:
+            raise ValueError("holgura_pct solo aplica en modo flexible.")
+        return self
 
 
 class EmpleadoCreate(EmpleadoBase):
@@ -70,64 +122,47 @@ class EmpleadoCreate(EmpleadoBase):
 
 class EmpleadoUpdate(BaseModel):
     nombre: str
-    pago_hora: float = Field(gt=0)
     seccional_id: int
+    servicio_id: int
+    horas_semanales: float = Field(gt=0)
+    dia_descanso: int = Field(ge=1, le=7)
+    modo_horas: Literal["fixed", "flexible"] = "fixed"
+    holgura_pct: float = Field(ge=0, default=0.0)
     permisos: list[PermisoLaboralIn] = []
+
+    @field_validator("horas_semanales")
+    @classmethod
+    def half_hour_multiple(cls, v: float) -> float:
+        if abs(v * 2 - round(v * 2)) > 1e-7:
+            raise ValueError("horas_semanales debe ser múltiplo de 0.5")
+        return v
 
 
 class EmpleadoOut(EmpleadoBase):
     id: int
     seccional_nombre: Optional[str] = None
+    servicio_nombre: Optional[str] = None
     permisos: list[PermisoLaboralOut] = []
 
     class Config:
         from_attributes = True
 
 
-class SemanaCreate(BaseModel):
-    numero: int = Field(ge=1)
-
-
-class SemanasSync(BaseModel):
-    cantidad: int = Field(ge=1, le=52)
-
-
-class SemanaOut(BaseModel):
-    id: int
-    numero: int
-
-    class Config:
-        from_attributes = True
-
-
-class DiaCreate(BaseModel):
-    nombre: str
-    orden: int
-
-
-class DiaUpdate(BaseModel):
-    nombre: str
-    orden: int
-
-
-class DiaActivoUpdate(BaseModel):
-    activo: bool
-
-
-class DiaOut(BaseModel):
-    id: int
-    nombre: str
-    orden: int
-    activo: bool
-
-    class Config:
-        from_attributes = True
-
-
 class JornadaBase(BaseModel):
-    nombre: str
-    horas: list[str]
-    almuerzos: list[str] = []
+    oficina_id: int
+    inicio: str
+    fin: str
+    break_inicio: Optional[str] = None
+    break_fin: Optional[str] = None
+    dias: list[int] = Field(min_length=1)
+
+    @field_validator("dias")
+    @classmethod
+    def validate_dias(cls, v: list[int]) -> list[int]:
+        for d in v:
+            if d < 1 or d > 7:
+                raise ValueError("dias debe contener valores entre 1 y 7.")
+        return sorted(set(v))
 
 
 class JornadaCreate(JornadaBase):
@@ -140,38 +175,46 @@ class JornadaUpdate(JornadaBase):
 
 class JornadaOut(JornadaBase):
     id: int
+    oficina_nombre: Optional[str] = None
+    seccional_nombre: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
-class ConfiguracionAvanzadaOut(BaseModel):
-    penalizacion_subpersonal: int
-    penalizacion_sobrepersonal: int
-    penalizacion_funcionario_utilizado: int
-    max_horas_semanales: int
-    solver_time_limit: int
+class DemandaFilaIn(BaseModel):
+    seccional: str
+    oficina: str
+    servicio: str
+    semana: int = Field(ge=1)
+    dia: int | str
+    hora: str
+    demanda: int = Field(ge=0)
+
+
+class DemandaBulkIn(BaseModel):
+    filas: list[DemandaFilaIn]
+
+
+class DemandaFilaOut(BaseModel):
+    id: int
+    seccional: str
+    oficina: str
+    servicio: str
+    semana: int
+    dia: int
+    hora: str
+    demanda: int
 
     class Config:
         from_attributes = True
 
 
-class ConfiguracionAvanzadaUpdate(BaseModel):
-    penalizacion_subpersonal: int = Field(ge=0)
-    penalizacion_sobrepersonal: int = Field(ge=0)
-    penalizacion_funcionario_utilizado: int = Field(ge=0)
-    max_horas_semanales: int = Field(ge=1, le=168)
-    solver_time_limit: int = Field(ge=1, le=86400)
-
-
-class DemandaStatusOut(BaseModel):
-    has_file: bool
-    filename: Optional[str] = None
-    uploaded_at: Optional[datetime] = None
-
-
-class SimulationRunOut(BaseModel):
-    ok: bool
+class DemandaBulkResult(BaseModel):
+    count: int
     errors: list[str] = []
-    warnings: list[str] = []
-    results: Optional[dict] = None
+
+
+class DemandaListOut(BaseModel):
+    filas: list[DemandaFilaOut]
+    total: int
